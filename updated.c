@@ -55,7 +55,16 @@ volatile sig_atomic_t sig_stop_flag = 0;
 void sig_child_handler(int sig_child){
     //int sig_child_flag = 1;
     int status;
-    waitpid(WAIT_ANY, &status, WUNTRACED|WNOHANG);
+    pid_t pid;
+    while((pid = waitpid(WAIT_ANY, &status, WUNTRACED|WNOHANG)) > 0){
+        // if(STOPPED){
+        //     //add this to the =job list using pid
+        // }
+        // if(terminated){
+        //     //check logic
+        // }
+    }
+    
 }
 //utility functions for operating job objects
 
@@ -193,9 +202,9 @@ do_job_notification (void)
 void
 put_job_in_background (job *j, int cont)
 {
+    tcsetpgrp (shell_terminal, shell_pgid);
+
     j->curr_bg = 1;
-    signal(SIGINT, SIG_IGN); 
-    signal(SIGTSTP, SIG_IGN);
   /* Send the job a continue signal, if necessary.  */
     if (cont){
         if (kill (-j->pgid, SIGCONT) < 0)
@@ -267,7 +276,7 @@ void init_shell(){
         signal (SIGTSTP, SIG_IGN);
         signal (SIGTTIN, SIG_IGN);
         signal (SIGTTOU, SIG_IGN);
-        signal (SIGCHLD, SIG_IGN);
+        signal(SIGCHLD, sig_child_handler);
 
         //put the shell in its own process group 
         shell_pgid = getpid();
@@ -368,10 +377,6 @@ char *get_path(process *p){
     return curr_path;
 }
 
-void sig_handler(int signo){
-    //int status;
-}
-
 void launch_job(job *j){
     process *p;
     pid_t pid;
@@ -421,7 +426,6 @@ void launch_job(job *j){
                     put_job_in_foreground(j, 0);
                 }
                 else{
-                    signal(SIGCHLD, sig_handler);
                     put_job_in_background(j, 0);
                 }
             }
@@ -734,8 +738,8 @@ void read_in_prompt(char* command, char *args[]){
                 //TODO gives segmentation fault
                 //create the jobs and processes
                 if(first_job == NULL){
-                    current_job = create_job(command, args, is_bg);
-                    first_job = current_job;
+                    first_job = create_job(command, args, is_bg);
+                    current_job = first_job;
                 }
                 else{
                     job *new_job = create_job(command, args, is_bg);
@@ -756,6 +760,7 @@ void read_in_prompt(char* command, char *args[]){
 }
 
 int main(int argc, char *argv[]){
+    
     char *command;
     command = malloc(256* sizeof(*command));
     char *args[256];
